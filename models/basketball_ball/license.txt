@@ -1,0 +1,8 @@
+Model Information:
+* title:	Basketball_Ball
+* source:	https://sketchfab.com/3d-models/basketball-ball-e03a52df8d0343ea8e5b4fd717196cd7
+* author:	dallerystudios (https://sketchfab.com/dallerystudios)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

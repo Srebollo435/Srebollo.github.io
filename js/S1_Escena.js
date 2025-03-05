@@ -1,91 +1,107 @@
 /**
- * Escena.js
- * 
- * Seminario AGM #1. Escena basica en three.js: 
- * Transformaciones, animacion basica y modelos importados
- * 
- * @author <rvivo@upv.es>, 2023
- * 
+ * Escena.js - Cancha de Baloncesto Mejorada
  */
 
-// Modulos necesarios
-import * as THREE from "../lib/three.module.js";
-import {GLTFLoader} from "../lib/GLTFLoader.module.js";
-
 // Variables globales
-let renderer, scene, camera, ball, clock;
+let renderer, scene, camera, ball, clock, controls, scoreboard, player;
+let keys = {};
+let ballVelocity = { x: 0, z: 0, y: 0 };
+const speed = 0.1;
+const gravity = -0.02;
+let score = { teamA: 0, teamB: 0 };
 
-// Acciones
 init();
 loadScene();
 render();
 
 function init() {
-    // Motor de render
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
     
-    // Escena
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87CEEB); // Color cielo
+    scene.background = new THREE.Color(0x87CEEB);
     
-    // Cámara
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 5, 10);
-    camera.lookAt(new THREE.Vector3(0, 0, 0));
+    camera.position.set(0, 10, 25);
     
-    // Reloj para la animación
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    
     clock = new THREE.Clock();
+    
+    window.addEventListener('keydown', (event) => keys[event.key.toLowerCase()] = true);
+    window.addEventListener('keyup', (event) => keys[event.key.toLowerCase()] = false);
 }
 
 function loadScene() {
-    // Suelo (cancha)
-    const floorGeometry = new THREE.PlaneGeometry(10, 20);
-    const floorMaterial = new THREE.MeshBasicMaterial({ color: 0x008000, side: THREE.DoubleSide });
-    const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-    floor.rotation.x = -Math.PI / 2;
-    scene.add(floor);
-
-    // Pelota de baloncesto
-    const ballGeometry = new THREE.SphereGeometry(0.5, 32, 32);
-    const ballMaterial = new THREE.MeshBasicMaterial({ color: 0xFF8C00 });
-    ball = new THREE.Mesh(ballGeometry, ballMaterial);
-    ball.position.set(0, 0.5, 0);
-    scene.add(ball);
-
-    // Canastas
-    createHoop(-4.5, 3, -9);
-    createHoop(4.5, 3, 9);
+    const loader = new THREE.GLTFLoader();
+    
+    // Cargar cancha
+    loader.load('models/cancha.glb', function (gltf) {
+        const cancha = gltf.scene;
+        cancha.position.set(0, 0, 0);
+        cancha.scale.set(1, 1, 1);
+        scene.add(cancha);
+    }, undefined, function (error) {
+        console.error('Error al cargar la cancha:', error);
+    });
+    
+    // Cargar canastas
+    loader.load('models/canasta/canasta.glb', function (gltf) {
+        const canasta1 = gltf.scene.clone();
+        const canasta2 = gltf.scene.clone();
+        
+        canasta1.position.set(-4.5, 3, -9);
+        canasta2.position.set(4.5, 3, 9);
+        
+        scene.add(canasta1);
+        scene.add(canasta2);
+    }, undefined, function (error) {
+        console.error('Error al cargar las canastas:', error);
+    });
+    
+    // Cargar jugador
+    loader.load('models/jugador/jugador.glb', function (gltf) {
+        player = gltf.scene;
+        player.position.set(0, 0, 0);
+        player.scale.set(1, 1, 1);
+        scene.add(player);
+    }, undefined, function (error) {
+        console.error('Error al cargar el jugador:', error);
+    });
+    
+    createScoreboard();
+    
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambientLight);
+    
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+    directionalLight.position.set(5, 10, 5);
+    scene.add(directionalLight);
 }
 
-function createHoop(x, y, z) {
-    // Poste
-    const poleGeometry = new THREE.CylinderGeometry(0.1, 0.1, 3, 16);
-    const poleMaterial = new THREE.MeshBasicMaterial({ color: 0x8B4513 });
-    const pole = new THREE.Mesh(poleGeometry, poleMaterial);
-    pole.position.set(x, y - 1.5, z);
-    scene.add(pole);
-    
-    // Tablero
-    const boardGeometry = new THREE.BoxGeometry(1.5, 1, 0.1);
-    const boardMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
-    const board = new THREE.Mesh(boardGeometry, boardMaterial);
-    board.position.set(x, y, z - 0.1);
-    scene.add(board);
-    
-    // Aro
-    const hoopGeometry = new THREE.TorusGeometry(0.4, 0.05, 16, 100);
-    const hoopMaterial = new THREE.MeshBasicMaterial({ color: 0xFF0000 });
-    const hoop = new THREE.Mesh(hoopGeometry, hoopMaterial);
-    hoop.position.set(x, y - 0.3, z - 0.2);
-    hoop.rotation.x = Math.PI / 2;
-    scene.add(hoop);
+function createScoreboard() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 128;
+    const context = canvas.getContext('2d');
+    context.fillStyle = 'black';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.fillStyle = 'white';
+    context.font = '20px Arial';
+    context.fillText(`Team A: ${score.teamA} - Team B: ${score.teamB}`, 20, 60);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.MeshBasicMaterial({ map: texture });
+    const scoreboardGeometry = new THREE.PlaneGeometry(4, 2);
+    scoreboard = new THREE.Mesh(scoreboardGeometry, material);
+    scoreboard.position.set(0, 6, -11);
+    scene.add(scoreboard);
 }
 
 function update() {
-    let time = clock.getElapsedTime();
-    ball.position.y = 0.5 + Math.abs(Math.sin(time * 2)) * 2; // Rebote de la pelota
+    controls.update();
 }
 
 function render() {
@@ -94,7 +110,6 @@ function render() {
     renderer.render(scene, camera);
 }
 
-// Ajustar tamaño al cambiar ventana
 window.addEventListener('resize', () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
     camera.aspect = window.innerWidth / window.innerHeight;
